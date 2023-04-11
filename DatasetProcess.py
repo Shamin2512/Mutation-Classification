@@ -62,6 +62,9 @@ cleaned = clean_data(PD_file, SNP_file)
 cleaned, AC_Codes = identifer(cleaned)
 AC_dataset_feature, AC_dataset_Nofeature = distance_feature(cleaned)
 
+AC_dataset_feature.to_csv('Dataset_Feature.csv')
+AC_dataset_Nofeature.to_csv('Dataset_NoFeature.csv')
+
 end = time.time()
 
 
