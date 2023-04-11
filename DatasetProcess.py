@@ -47,17 +47,18 @@ def identifer(cleaned):
 
 # %%
 def distance_feature(cleaned):
-    AC_dataset_feature = cleaned.drop(['SprotFTdist-ACT_SITE','SprotFTdist-BINDING','SprotFTdist-CA_BIND','SprotFTdist-DNA_BIND','SprotFTdist-NP_BIND','SprotFTdist-METAL','SprotFTdist-MOD_RES','SprotFTdist-CARBOHYD','SprotFTdist-MOTIF','SprotFTdist-LIPID'], axis = 1, inplace = False)
-    AC_dataset_Nofeature = cleaned
+    AC_dataset_Nofeature = cleaned.drop(['SprotFTdist-ACT_SITE','SprotFTdist-BINDING','SprotFTdist-CA_BIND','SprotFTdist-DNA_BIND','SprotFTdist-NP_BIND','SprotFTdist-METAL','SprotFTdist-MOD_RES','SprotFTdist-CARBOHYD','SprotFTdist-MOTIF','SprotFTdist-LIPID'], axis = 1, inplace = False)
+    AC_dataset_feature = cleaned
     
     return(AC_dataset_feature, AC_dataset_Nofeature)
 
 # %%
 """ Main program """
 start = time.time()
+print("Running script...")
 
-PD_file = "PD_test.csv"
-SNP_file = "SNP_test.csv" 
+PD_file = "pd.csv"  
+SNP_file = "snp.csv" 
 cleaned = clean_data(PD_file, SNP_file)
 cleaned, AC_Codes = identifer(cleaned)
 AC_dataset_feature, AC_dataset_Nofeature = distance_feature(cleaned)
