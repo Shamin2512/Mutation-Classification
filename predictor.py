@@ -121,9 +121,14 @@ def test(Training_Set, d_test):
     XGB_initial = xgb.train(params, d_train)
     
     Output_pred = XGB_initial.predict(d_test)
-    print(f"              **Initial Evaluation**")
-    print(f"Confusion Matrix:\n {confusion_matrix(d_test.get_label(), Output_pred)}")
-    print(f"MCC              {matthews_corrcoef(d_test.get_label(), Output_pred)}\n")
+    CM = confusion_matrix(d_test.get_label(), Output_pred)
+    MCC = matthews_corrcoef(d_test.get_label(), Output_pred)
+    
+    print("              **Initial Evaluation**")
+    print("Confusion Matrix:\n")
+    print(CM)
+    print("MCC:")
+    print(MCC)
 
 
 # %% [markdown]
