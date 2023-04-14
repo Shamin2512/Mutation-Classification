@@ -397,9 +397,9 @@ def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric):
     params = {
     'booster': 'gbtree',
     'objective': 'binary:logistic', 
-    'disable_default_eval_metric': 1,
+    'disable_default_eval_metric': 0,
     'verbosity': 0,
-    # 'eval_metric':['error'],
+    'eval_metric':['error'],
     } 
     
     BF_GBC = []
@@ -411,7 +411,7 @@ def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric):
                                 evals  = [(d_val,'Model')],
                                 verbose_eval = False,               #Print evaluation metrics every 50 trees
                                 early_stopping_rounds = 50,
-                                custom_metric = MCC_eval_metric, 
+                                # custom_metric = MCC_eval_metric, 
                                 )
                       )                                             #Generates and fits a GBC for each training balanced fold
     return BF_GBC
@@ -608,7 +608,6 @@ for i in range(0,15):
     fold_prob_matrix = fold_predict(BF_GBC, d_test)
     all_prob_matrix.append(fold_prob_matrix)
     MCC_final = final_evaluation(all_prob_matrix, TestLabels)
-    print(MCC_final)
         
     Score_list.append(MCC_final)  
 end = time.time()
