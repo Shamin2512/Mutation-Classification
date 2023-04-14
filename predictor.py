@@ -613,6 +613,10 @@ for i in range(0,15):
     Score_list.append(MCC_final)  
 end = time.time()
 # plot(Score_list)
-print(f"Final evaluation:{np.mean(Score_list)} \u00B1 {np.std(Score_list)}\n\nLowest score:{min(Score_list)}\nHighest score:{max(Score_list)}\n\nRun time: {end-start}")
+print("\nFinal evaluation:")
+print(np.mean(Score_list), "+/-", (np.std(Score_list)))
+print("Max score:", max(Score_list))
+print("Min score:", min(Score_list))
+print("Run time:", (end-start))
 
 
