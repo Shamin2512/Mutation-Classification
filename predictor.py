@@ -403,7 +403,7 @@ def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric):
         d_train = d_train_list[fold_i]                              #Dmatrix for each balanced fold
         BF_GBC.append(xgb.train(params, 
                                 d_train, 
-                                num_boost_round = 1500,
+                                num_boost_round = 2500,
                                 evals  = [(d_val,'Model')],
                                 verbose_eval = False,               #Print evaluation metrics every 50 trees
                                 early_stopping_rounds = 100,
@@ -606,7 +606,7 @@ for fold in range(len(IT_list)):
     MCC_final = final_evaluation(all_prob_matrix, TestLabels)
     print(MCC_final)
     
-Score_list.append(MCC_final)  
+    Score_list.append(MCC_final)  
 end = time.time()
 # plot(Score_list)
 print(f"Final evaluation:{np.mean(Score_list)} \u00B1 {np.std(Score_list)}\n\nLowest score:{min(Score_list)}\nHighest score:{max(Score_list)}\n\nRun time: {end-start}")
