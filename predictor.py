@@ -5,7 +5,8 @@
 # ### Import library
 
 # %% [markdown]
-# Example 2 is inbalanced data set; ~2200 in PD and ~1100 in SNP
+# Example 2 dataset "AC_dataset" is imbalanced 2:1: ~2200 PD and ~1100 SNP
+# Full dataset "Dataset_NoFeature" is imbalanced 18:1: ~460000 PD and ~25000 SNP
 #     Goal is to predict if mutation is SNP or PD
 #     XG Boost
 #         
@@ -121,14 +122,9 @@ def test(Training_Set, d_test):
     XGB_initial = xgb.train(params, d_train)
     
     Output_pred = XGB_initial.predict(d_test)
-    CM = confusion_matrix(d_test.get_label(), Output_pred)
-    MCC = matthews_corrcoef(d_test.get_label(), Output_pred)
-    
-    print("              **Initial Evaluation**")
-    print("Confusion Matrix:\n")
-    print(CM)
-    print("MCC:")
-    print(MCC)
+    print(f"              **Initial Evaluation**")
+    print(f"Confusion Matrix:\n {confusion_matrix(d_test.get_label(), Output_pred)}")
+    print(f"MCC              {matthews_corrcoef(d_test.get_label(), Output_pred)}\n")
 
 
 # %% [markdown]
@@ -397,9 +393,9 @@ def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric):
     params = {
     'booster': 'gbtree',
     'objective': 'binary:logistic', 
-    'disable_default_eval_metric': 0,
+    'disable_default_eval_metric': 1,
     'verbosity': 0,
-    'eval_metric':['error'],
+    # 'eval_metric':['error'],
     } 
     
     BF_GBC = []
@@ -407,11 +403,11 @@ def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric):
         d_train = d_train_list[fold_i]                              #Dmatrix for each balanced fold
         BF_GBC.append(xgb.train(params, 
                                 d_train, 
-                                num_boost_round = 250,
+                                num_boost_round = 1500,
                                 evals  = [(d_val,'Model')],
                                 verbose_eval = False,               #Print evaluation metrics every 50 trees
-                                early_stopping_rounds = 50,
-                                # custom_metric = MCC_eval_metric, 
+                                early_stopping_rounds = 100,
+                                custom_metric = MCC_eval_metric, 
                                 )
                       )                                             #Generates and fits a GBC for each training balanced fold
     return BF_GBC
@@ -579,20 +575,20 @@ def plot(Score_list):
 # %%
 Score_list = []
 start = time.time()
-for i in range(0,15):
-    file                               = "AC_dataset.csv"
-    Training_Set, Testing_Set          = Train_Test_Split(file)
-    d_test, TestData, TestLabels = test_dmatrix(Testing_Set)   
-    
-    # test(Training_Set, d_test)               
-    IT_list, LT_list, IV_list, LV_list = CV(Training_Set)     
+# for i in range(0,15):
+file                               = "AC_dataset.csv"
+Training_Set, Testing_Set          = Train_Test_Split(file)
+d_test, TestData, TestLabels = test_dmatrix(Testing_Set)   
 
-    all_prob_matrix = []
-    for fold in range(len(IT_list)):          
-        inData = IT_list[fold]
-        classData = LT_list[fold]
-        ValData = IV_list[fold]
-        Vallabel = LV_list[fold]
+# test(Training_Set, d_test)               
+IT_list, LT_list, IV_list, LV_list = CV(Training_Set)     
+
+all_prob_matrix = []
+for fold in range(len(IT_list)):          
+    inData = IT_list[fold]
+    classData = LT_list[fold]
+    ValData = IV_list[fold]
+    Vallabel = LV_list[fold]
 
     #Validation
     minClass, minSize, maxSize  = find_minority_class(classData)   
@@ -603,19 +599,16 @@ for i in range(0,15):
     Prob_matrix                 = BF_predict(BF_GBC, d_val)
     Final_vote, Sum_PD, Sum_SNP = Weighted_Vote(Prob_matrix)
     CV_MCC = CV_evaluation(d_val, Final_vote)                #prints classification report for all 5 folds
-    
+
     #Testing
     fold_prob_matrix = fold_predict(BF_GBC, d_test)
     all_prob_matrix.append(fold_prob_matrix)
     MCC_final = final_evaluation(all_prob_matrix, TestLabels)
-        
-    Score_list.append(MCC_final)  
+    print(MCC_final)
+    
+Score_list.append(MCC_final)  
 end = time.time()
 # plot(Score_list)
-print("\nFinal evaluation:")
-print(np.mean(Score_list), "+/-", (np.std(Score_list)))
-print("Max score:", max(Score_list))
-print("Min score:", min(Score_list))
-print("Run time:", (end-start))
+print(f"Final evaluation:{np.mean(Score_list)} \u00B1 {np.std(Score_list)}\n\nLowest score:{min(Score_list)}\nHighest score:{max(Score_list)}\n\nRun time: {end-start}")
 
 
