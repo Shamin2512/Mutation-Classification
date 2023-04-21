@@ -2,9 +2,6 @@
 #Predictor
 
 # %% [markdown]
-# ### Import library
-
-# %% [markdown]
 # Example 2 dataset "AC_dataset" is imbalanced 2:1: ~2200 PD and ~1100 SNP
 # Full dataset "Dataset_NoFeature" is imbalanced 18:1: ~460000 PD and ~25000 SNP
 #     Goal is to predict if mutation is SNP or PD
@@ -15,7 +12,10 @@
 #     1111 SNP samples
 #     3 NA samples
 # 
-# Main branch (MCC ~0.68)
+# Scale branch
+
+# %% [markdown]
+# ### Import library
 
 # %%
 """ Imports the required libraries and packages """
@@ -23,6 +23,7 @@
 import pandas as pd                                                              # Data manipulation in dataframes
 import numpy as np                                                               # Array manipulation
 import xgboost as xgb                                                            # Gradient boosting package
+# import hyperopt
 
 import random as rd                                                              # Random seed generation
 import time                                                                      # Time program run time
@@ -38,6 +39,7 @@ from sklearn.metrics import(
     matthews_corrcoef,                                                           # MCC for evaluation
     # balanced_accuracy_score, #hyperparameter evaluation
     # f1_score,  #hyperparameter evaluation
+    accuracy_score,
     confusion_matrix,                                                            # Confusion matrix for classification evalutation
     classification_report                                                        # Return the F1, precision, and recall of a prediction
     )
@@ -50,7 +52,10 @@ from sklearn.model_selection import(
         )
 
 from sklearn.utils import shuffle
-# from sklearn.ensemble import RandomForestClassifier                              # SK learn API for classificastion random forests
+# from sklearn.ensemble import RandomForestClassifier                            # SK learn API for classificastion random forests
+
+# from hyperopt import fmin, tpe, hp, Trials, STATUS_OK                                       # Functions for minimising cost functions
+# from hyperopt.pyll.base import scope
 
 np.set_printoptions(precision = 3,threshold=np.inf, suppress=True)               # Full array printing
 
@@ -58,26 +63,39 @@ np.set_printoptions(precision = 3,threshold=np.inf, suppress=True)              
 # ### Split dataset into training and validation sets
 
 # %%
-def Train_Test_Split(file):
-    """      
-    Input:      file             Pre-processed dataset done by PDB2AC script
+# def Train_Test_Split(file):
+#     """      
+#     Input:      file             Pre-processed dataset done by PDB2AC script
 
-    Returns:    Training_Set     80% training set split
-                Testing_Set      20% testing set split
+#     Returns:    Training_Set     80% training set split
+#                 Testing_Set      20% testing set split
                 
-    80% training and 20% testing split. Splits are shuffled randomly and index reset
-    """
-    AC_dataset                  = pd.read_csv(file, index_col=0)  
-    Training_Set                = AC_dataset
+#     80% training and 20% testing split. Splits are shuffled randomly and index reset
+#     """
+#     AC_dataset                  = pd.read_csv(file, index_col=0)  
+#     Training_Set                = AC_dataset
         
-    Training_Set, Testing_Set   = train_test_split(AC_dataset,train_size = 0.8)
+#     Training_Set, Testing_Set   = train_test_split(AC_dataset,train_size = 0.8)
         
-    Training_Set.reset_index(drop=True, inplace = True)         #Drop index to avoid training on index values
-    Testing_Set.reset_index(drop=True, inplace = True)          #Reset index after splitting for compatability with group fold CV
+#     Training_Set.reset_index(drop=True, inplace = True)         #Drop index to avoid training on index values
+#     Testing_Set.reset_index(drop=True, inplace = True)          #Reset index after splitting for compatability with group fold CV
     
-    Training_Set                = Training_Set.sample(frac = 1) #Shuffle data after splitting
-    Testing_Set                 = Testing_Set.sample(frac = 1)
+#     Training_Set                = Training_Set.sample(frac = 1) #Shuffle data after splitting
+#     Testing_Set                 = Testing_Set.sample(frac = 1)
     
+#     # Training_Set.to_csv("Training_Set.csv", index=False)
+#     # Testing_Set.to_csv("Testing_Set.csv", index=False)
+
+#     Training_Set = pd.read_csv('Scaled_Training_Set.csv')
+#     Testing_Set = pd.read_csv('Scaled_Testing_Set.csv')
+
+    
+#     return Training_Set, Testing_Set
+
+# %%
+def open_data():
+    Training_Set = pd.read_csv("Scaled_Training_Set.csv")
+    Testing_Set = pd.read_csv("Scaled_Testing_Set.csv")
     
     return Training_Set, Testing_Set
 
@@ -351,33 +369,86 @@ def MCC_eval_metric(pred, d_val):
     return 'mcc', matthews_corrcoef(pred_label, true_label)
 
 # %%
-# def hyperparameter(BF, d_train_list, d_val):
-#   """ Input:      BF                Number of balancing folds needed
-#                   d_train_list      List of balanced training feature folds as DMatrix
-#                   d_val             Validation data as Dmatrix
+# def hyperopt_space():
+#     """ 
+#     Returns:    Space         Parameter space for hyperopt searching
 
-#       Returns:    BF_GBC_HP         List of optimized hyperparameters for each GBC
-
-#       Use XGB in-built cross validaiton for hyperparameter turning
-#   """  
-#   params = {
-#     'booster': 'gbtree',
-#     'objective': 'binary:logistic', 
-#     # 'learning_rate': 0.3,
-#     # 'max_depth': 5,
-#     }
-#   for i in range(BF):        
-#     BF_GBC_HP = xgb.cv(
-#         params,
-#         d_train_list[i],
-#         nfold = 5,
-#         num_boost_round= 500,
-#         early_stopping_rounds= 20,
-#         custom_metric = CM, 
-#         as_pandas=True,
-#     )
+#     Define paramater psace for hyperopt tuning
+#    """  
+# #   params = {
+# #     'booster': 'gbtree',
+# #     'objective': 'binary:logistic', 
+# #     # 'learning_rate': 0.3,
+# #     # 'max_depth': 5,
+# #     }
+# #   for i in range(BF):        
+# #     BF_GBC_HP = xgb.cv(
+# #         params,
+# #         d_train_list[i],
+# #         nfold = 5,
+# #         num_boost_round= 500,
+# #         early_stopping_rounds= 20,
+# #         custom_metric = CM, 
+# #         as_pandas=True,
+# #     )
   
-#   return(BF_GBC_HP)
+# #   return(BF_GBC_HP) 
+
+#     space = {
+#         'max_depth': hp.quniform('max_depth', 3, 18),
+#         # 'eta': hp.loguniform('eta', -7, 0),
+#         # 'min_child_weight': hp.loguniform('min_child_weight', -1, 7),
+#         # 'gamma': hp.loguniform ('gamma', -10, 10),
+#         # 'reg_alpha': hp.loguniform('reg_alpha', -10, 10),
+#         # 'reg_lambda': hp.loguniform('reg_lambda', -10, 10),
+#         }     
+    
+#     return space
+
+
+# %%
+# def BF_optimise(BF, d_train_list, d_val, space): 
+#     """ 
+#     Input:      BF                Number of balancing folds                      
+#                 d_train_list      List of balanced training feature folds in DMatrix
+#                 d_val             Validation data as Dmatrix
+                
+#     Returns:    BF_GBC            List of gradient boosted models trained on each balancing fold
+
+#     Create GBC model that returns probability predictions for each fold, using output of Balance_Folds() as training data (as Dmatrix)
+#     """     
+    
+#     params = {
+#         'booster': 'gbtree',
+#         'objective': 'binary:logistic',
+#         'eval_metric': 'error',
+#         'disable_default_eval_metric': 0,
+#         'verbosity': 1,
+#         'max_depth': space['max_depth'],
+#               } 
+#         # 'gamma': space['gamma'],
+#         # 'alpha': space['alpha'],
+#         # 'lambda': space['lambda'],
+#         # 'colsample_bytree': space['colsample_bytree'],
+#         # 'min_child_weight': space['min_child_weight'],
+    
+#     BF_models = []
+#     # for fold_i in range(BF):
+#     d_train = d_train_list[0]                              #Dmatrix for each balanced fold
+#     BF_models = xgb.train(params,
+#                           d_train,
+#                           num_boost_round = 1000,
+#                           evals  = [(d_val,'Model')],
+#                           verbose_eval = False,
+#                           early_stopping_rounds = 10,
+#                           )
+#                                                                  #Generates and fits a GBC for each training balanced fold
+#     # pred_list = []
+#     # for i in len(range(BF_models)):
+#     pred = BF_models.predict(d_val)
+#     accuracy_score = (d_val.get_label(), pred > 0.5)
+                                                                      
+#     return accuracy_score
 
 # %%
 def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric): 
@@ -390,6 +461,7 @@ def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric):
 
     Create GBC model that returns probability predictions for each fold, using output of Balance_Folds() as training data (as Dmatrix)
     """     
+        
     params = {
     'booster': 'gbtree',
     'objective': 'binary:logistic', 
@@ -398,12 +470,13 @@ def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric):
     # 'eval_metric':['error'],
     } 
     
+    
     BF_GBC = []
     for fold_i in range(BF):
         d_train = d_train_list[fold_i]                              #Dmatrix for each balanced fold
         BF_GBC.append(xgb.train(params, 
                                 d_train, 
-                                num_boost_round = 2500,
+                                num_boost_round = 1500,
                                 evals  = [(d_val,'Model')],
                                 verbose_eval = False,               #Print evaluation metrics every 50 trees
                                 early_stopping_rounds = 100,
@@ -576,8 +649,7 @@ def plot(Score_list):
 Score_list = []
 start = time.time()
 # for i in range(0,15):
-file                               = "Dataset_NoFeature.csv"
-Training_Set, Testing_Set          = Train_Test_Split(file)
+Training_Set, Testing_Set          = open_data()
 d_test, TestData, TestLabels = test_dmatrix(Testing_Set)   
 
 # test(Training_Set, d_test)               
@@ -595,6 +667,17 @@ for fold in range(len(IT_list)):
     BF                          = Balance_ratio(maxSize, minSize)                        
     Input_folds, Output_folds   = Balance_Folds(BF, inData, classData, minClass, minSize)
     d_train_list, d_val         = GBM_dmatrix(BF, Input_folds, Output_folds, ValData, Vallabel)
+    
+    # space = hyperopt_space()
+    # accuracy_score = BF_optimise(BF, d_train_list, d_val, space)
+    # trials = Trials()
+    # best = fmin(fn = accuracy_score,
+    #             space = space,
+    #             algo = tpe.suggest,
+    #             max_evals = 140,
+    #             trials = trials,
+    #             )
+    
     BF_GBC                      = BF_fitting(BF, d_train_list, d_val, MCC_eval_metric)
     Prob_matrix                 = BF_predict(BF_GBC, d_val)
     Final_vote, Sum_PD, Sum_SNP = Weighted_Vote(Prob_matrix)
