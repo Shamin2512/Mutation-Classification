@@ -94,8 +94,14 @@ np.set_printoptions(precision = 3,threshold=np.inf, suppress=True)              
 
 # %%
 def open_data():
-    Training_Set = pd.read_csv("Scaled_Training_Set.csv")
-    Testing_Set = pd.read_csv("Scaled_Testing_Set.csv")
+    """      
+     Returns:    Training_Set     Scaled 80% training set split
+                 Testing_Set      Scaled 20% testing set split
+            
+    Opens the scaled training and testing data
+    """
+    Training_Set = pd.read_csv("Training_Set.csv")
+    Testing_Set = pd.read_csv("Testing_Set.csv")
     
     return Training_Set, Testing_Set
 
