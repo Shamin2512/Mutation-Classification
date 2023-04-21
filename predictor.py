@@ -658,9 +658,9 @@ start = time.time()
 Training_Set, Testing_Set          = open_data()
 d_test, TestData, TestLabels = test_dmatrix(Testing_Set)   
 
-# test(Training_Set, d_test)               
+# test(Training_Set, d_test)   
+print("Group fold validation...")            
 IT_list, LT_list, IV_list, LV_list = CV(Training_Set)     
-
 all_prob_matrix = []
 for fold in range(len(IT_list)):          
     inData = IT_list[fold]
@@ -670,7 +670,8 @@ for fold in range(len(IT_list)):
 
     #Validation
     minClass, minSize, maxSize  = find_minority_class(classData)   
-    BF                          = Balance_ratio(maxSize, minSize)                        
+    BF                          = Balance_ratio(maxSize, minSize) 
+    print("Balancing...")                       
     Input_folds, Output_folds   = Balance_Folds(BF, inData, classData, minClass, minSize)
     d_train_list, d_val         = GBM_dmatrix(BF, Input_folds, Output_folds, ValData, Vallabel)
     
@@ -683,13 +684,14 @@ for fold in range(len(IT_list)):
     #             max_evals = 140,
     #             trials = trials,
     #             )
-    
+    print("Training...")
     BF_GBC                      = BF_fitting(BF, d_train_list, d_val, MCC_eval_metric)
     Prob_matrix                 = BF_predict(BF_GBC, d_val)
     Final_vote, Sum_PD, Sum_SNP = Weighted_Vote(Prob_matrix)
-    CV_MCC = CV_evaluation(d_val, Final_vote)                #prints classification report for all 5 folds
+    # CV_MCC = CV_evaluation(d_val, Final_vote)                #prints classification report for all 5 folds
 
     #Testing
+    print("Testing...")
     fold_prob_matrix = fold_predict(BF_GBC, d_test)
     all_prob_matrix.append(fold_prob_matrix)
     MCC_final = final_evaluation(all_prob_matrix, TestLabels)
