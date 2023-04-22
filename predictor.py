@@ -470,9 +470,12 @@ def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric):
         
     params = {
     'booster': 'gbtree',
+    'tree_method': 'hist',
     'objective': 'binary:logistic', 
+    'eta': 0.6,
     'disable_default_eval_metric': 1,
     'verbosity': 0,
+    'nthread': -1,
     # 'eval_metric':['error'],
     } 
     
