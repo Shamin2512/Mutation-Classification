@@ -465,8 +465,13 @@ def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric, fold, pickle_file):
     'booster': 'gbtree',
     'tree_method': 'hist',
     'objective': 'binary:logistic', 
+    'eta': 0.8,
+    'max_depth': 9,
+    # 'reg_alpha': 0.01,
+    # 'gamma': 0.01,
     'disable_default_eval_metric': 1,
     'verbosity': 0,
+    'nthreads': -1,
     # 'eval_metric':['error'],
     } 
     
