@@ -1,17 +1,7 @@
-# %%
-#Predictor
-
 # %% [markdown]
-# Example 2 dataset "AC_dataset" is imbalanced 2:1: ~2200 PD and ~1100 SNP
-# Full dataset "Dataset_NoFeature" is imbalanced 18:1: ~460000 PD and ~25000 SNP
-#     Goal is to predict if mutation is SNP or PD
-#     XG Boost
+# SAAPpred script that predicts protein pathogenicty from SAAPdap data, using XG Boost. Used on on "AC_dataset" (imbalance 2:1: ~2200 PD and ~1100 SNP) and "Dataset_NoFeature" (imbalance 18:1: ~460000 PD and ~25000 SNP)
+# Goal is to predict SNP or PD with MCC > 0.7.
 #         
-#     Total samples: 3368
-#     2254 PD samples
-#     1111 SNP samples
-#     3 NA samples
-# 
 # Scale branch
 
 # %% [markdown]
@@ -23,6 +13,7 @@
 import pandas as pd                                                              # Data manipulation in dataframes
 import numpy as np                                                               # Array manipulation
 import xgboost as xgb                                                            # Gradient boosting package
+import pickle                                                                    # Saving/loading GBM files
 # import hyperopt
 
 import random as rd                                                              # Random seed generation
@@ -100,8 +91,8 @@ def open_data():
             
     Opens the scaled training and testing data
     """
-    Training_Set = pd.read_csv("Training_Set.csv")
-    Testing_Set = pd.read_csv("Testing_Set.csv")
+    Training_Set = pd.read_csv("Training_Set.csv", index_col = 0)
+    Testing_Set = pd.read_csv("Testing_Set.csv",index_col = 0)
     
     return Training_Set, Testing_Set
 
@@ -457,7 +448,9 @@ def MCC_eval_metric(pred, d_val):
 #     return accuracy_score
 
 # %%
-def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric): 
+# def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric, fold): 
+def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric, fold, pickle_file): 
+
     """ 
     Input:      BF                Number of balancing folds                      
                 d_train_list      List of balanced training feature folds in DMatrix
@@ -472,27 +465,34 @@ def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric):
     'booster': 'gbtree',
     'tree_method': 'hist',
     'objective': 'binary:logistic', 
-    'eta': 0.6,
     'disable_default_eval_metric': 1,
     'verbosity': 0,
-    'nthread': -1,
     # 'eval_metric':['error'],
     } 
     
     
     BF_GBC = []
+    
     for fold_i in range(BF):
         d_train = d_train_list[fold_i]                              #Dmatrix for each balanced fold
-        BF_GBC.append(xgb.train(params, 
-                                d_train, 
-                                num_boost_round = 1500,
-                                evals  = [(d_val,'Model')],
-                                verbose_eval = False,               #Print evaluation metrics every 50 trees
-                                early_stopping_rounds = 100,
-                                custom_metric = MCC_eval_metric, 
-                                )
-                      )                                             #Generates and fits a GBC for each training balanced fold
-    return BF_GBC
+        model = xgb.train(params,                                   #Generates and fits a GBC for each training balanced fold
+                          d_train, 
+                          num_boost_round = 1500,
+                          evals  = [(d_val,'Model')],
+                          verbose_eval = False,               #Print evaluation metrics every 50 trees
+                          early_stopping_rounds = 100,
+                          custom_metric = MCC_eval_metric,
+                          )
+        
+        filename = f"CV_{fold + 1}_model_{fold_i + 1}.pkl"
+        with open(filename, "wb") as f:
+            pickle.dump(model, f)
+            
+        BF_GBC.append(model)
+        pickle_file.append(filename)
+        
+    return BF_GBC, pickle_file
+    # return BF_GBC
 
 # %% [markdown]
 # ### Validation
@@ -567,32 +567,60 @@ def CV_evaluation(d_val, Final_vote):
     # print(f"-----------------------------------------------------\n              ***CV Fold Evaluation***\n")
     # print(f"Confusion Matrix:\n {confusion_matrix(TrueLabel, Output_pred)}")
     # print(f"{classification_report(TrueLabel, Output_pred)}\nMCC                  
-    CV_MCC = matthews_corrcoef(TrueLabel, Output_pred)
+    CV_MCC = print(f"CM:\n{confusion_matrix(TrueLabel, Output_pred)}\nMCC: {matthews_corrcoef(TrueLabel, Output_pred)}\n")
     
     return CV_MCC
+
+# %%
+# def fold_models(BF_GBC, all_model_list):
+#     """ 
+#     Input:      BF_RFC            List of 5 GBMs trained on balanced folds
+#                 all_model_list    List that will contain all fold GBM models
+                
+#     Returns:    all_model_list    List of all GBM models from all fold. 25 total
+    
+#     Adds all GBM models for a given fold to a list for final testing.
+#     """
+#     all_model_list.append(BF_GBC)
+    
+#     return all_model_list
 
 # %% [markdown]
 # # Outer Loop: Final evaluation 
 
 # %%
-def fold_predict(BF_GBC, d_test):
+def fold_predict(d_test, pickle_file):
+# def fold_predict(all_model_list, d_test):
+
     """ 
-    Input:      BF_RFC            List of RFCs trained on balancing folds
+    Input:      all_model_list    List of all GBM models from all fold. 25 total
                 d_test            Unseen testing data as Dmatrix
 
                 
-    Returns:    Prob_matrix     List of arrays. Each item is 2D matrix where the 1st dimension is each subset in balancing fold, 
-                                2nd dimension is predicted probability
+    Returns:    fold_prob_matrix  List of arrays. Each item is 2D matrix where the 1st dimension is each subset in balancing fold, 
+                                  2nd dimension is predicted probability
     
     Predicts the probabilty for every datapoint in the testing set.
     """
     
-    fold_prob_matrix = []
-    for i in range(len(BF_GBC)):
-        Prob = BF_GBC[i].predict(d_test)     #Predicts the probability of an instance belonging to the major/ positive class (PD/ 1). Output has shape (n_predictions,)
-        fold_prob_matrix.append(Prob)   
+    all_prob_matrix = []
+    all_models = []
+    
+    for file in pickle_file:
+        with open(file, "rb") as f:
+            model = pickle.load(f)
+            all_models.append(model)
+            
+    for i in range(len(all_models)):
+        Prob = all_models[i].predict(d_test)     #Predicts the probability of an instance belonging to the major/ positive class (PD/ 1). Output has shape (n_predictions,)
+        all_prob_matrix.append(Prob)   
+
+    # for i in range(len(all_model_list)):
+    #     for j in range(len(all_model_list[i])):
+    #         Prob = all_model_list[i][j].predict(d_test)     #Predicts the probability of an instance belonging to the major/ positive class (PD/ 1). Output has shape (n_predictions,)
+    #         all_prob_matrix.append(Prob)   
         
-    return fold_prob_matrix
+    return all_prob_matrix
 
 # %%
 def final_evaluation(all_prob_matrix, TestLabels):
@@ -605,13 +633,13 @@ def final_evaluation(all_prob_matrix, TestLabels):
     Calculate the final weighted vote using confidence scores (Sc) from all_prob_matrix. Then evaluates votes agains true labels to give the final MCC
     """
     
-    flat_list = [matrix for proba in all_prob_matrix for matrix in proba]
+    # flat_list = [matrix for proba in all_prob_matrix for matrix in proba]
     
-    PD_prob_matrix = flat_list 
+    PD_prob_matrix = all_prob_matrix
 
     SNP_prob_matrix = []
-    for i in range(len(flat_list)):                 #SNP probabilites are 1 - (PD probabilites)
-        sub = 1 - flat_list[i]
+    for i in range(len(all_prob_matrix)):                 #SNP probabilites are 1 - (PD probabilites)
+        sub = 1 - all_prob_matrix[i]
         SNP_prob_matrix.append(sub)
             
     Sum_SNP = np.sum(SNP_prob_matrix, axis = 0)     #Sum of all SNP confidence scores. 1D Array
@@ -655,16 +683,22 @@ def plot(Score_list):
 # ### Main Program
 
 # %%
-Score_list = []
 start = time.time()
+
+Score_list = []
+# all_model_list = []
+pickle_file = []
+
 # for i in range(0,15):
+print("Opening dataset...")
 Training_Set, Testing_Set          = open_data()
 d_test, TestData, TestLabels = test_dmatrix(Testing_Set)   
 
-# test(Training_Set, d_test)   
-print("Group fold validation...")            
+# test(Training_Set, d_test)
+print("Performing Group fold validation...")
+            
 IT_list, LT_list, IV_list, LV_list = CV(Training_Set)     
-all_prob_matrix = []
+
 for fold in range(len(IT_list)):          
     inData = IT_list[fold]
     classData = LT_list[fold]
@@ -672,9 +706,9 @@ for fold in range(len(IT_list)):
     Vallabel = LV_list[fold]
 
     #Validation
+    print(f"[Fold {fold}] Balancing...")
     minClass, minSize, maxSize  = find_minority_class(classData)   
-    BF                          = Balance_ratio(maxSize, minSize) 
-    print("Balancing...")                       
+    BF                          = Balance_ratio(maxSize, minSize)                        
     Input_folds, Output_folds   = Balance_Folds(BF, inData, classData, minClass, minSize)
     d_train_list, d_val         = GBM_dmatrix(BF, Input_folds, Output_folds, ValData, Vallabel)
     
@@ -687,20 +721,23 @@ for fold in range(len(IT_list)):
     #             max_evals = 140,
     #             trials = trials,
     #             )
-    print("Training...")
-    BF_GBC                      = BF_fitting(BF, d_train_list, d_val, MCC_eval_metric)
+    print(f"[Fold {fold}] Training...")
+    BF_GBC, pickle_file         = BF_fitting(BF, d_train_list, d_val, MCC_eval_metric, fold, pickle_file)
+
     Prob_matrix                 = BF_predict(BF_GBC, d_val)
     Final_vote, Sum_PD, Sum_SNP = Weighted_Vote(Prob_matrix)
-    # CV_MCC = CV_evaluation(d_val, Final_vote)                #prints classification report for all 5 folds
-
-    #Testing
-    print("Testing...")
-    fold_prob_matrix = fold_predict(BF_GBC, d_test)
-    all_prob_matrix.append(fold_prob_matrix)
-    MCC_final = final_evaluation(all_prob_matrix, TestLabels)
-    print(MCC_final)
+    # CV_MCC = CV_evaluation(d_val, Final_vote)                        #prints classification report for all 5 folds
+    # CV_MCC
+    # all_model_list = fold_models(BF_GBC, all_model_list)
     
-    Score_list.append(MCC_final)  
+#Testing
+print("Testing...") 
+all_prob_matrix = fold_predict(d_test, pickle_file) 
+
+MCC_final = final_evaluation(all_prob_matrix, TestLabels) 
+print(MCC_final)   
+Score_list.append(MCC_final) 
+     
 end = time.time()
 # plot(Score_list)
 print(f"Final evaluation:{np.mean(Score_list)} \u00B1 {np.std(Score_list)}\n\nLowest score:{min(Score_list)}\nHighest score:{max(Score_list)}\n\nRun time: {end-start}")
