@@ -1,5 +1,5 @@
 # %% [markdown]
-# Script splits the processed dataset into 80% training and 20% testing for normalisation by DataScalling script.
+# Script splits the processed dataset into 80% training and 20% testing for normalisation by DataScaling script.
 
 # %%
 import pandas as pd                                                              # Data manipulation in dataframes
@@ -29,7 +29,7 @@ def Train_Test_Split(file):
     Testing_Set.to_csv('Testing_Set.csv')
 
 # %%
-file = 'ScaledDataset.csv'
+file = input("Enter file for splitting: ")
 Train_Test_Split(file)
 
 

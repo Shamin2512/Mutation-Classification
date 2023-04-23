@@ -7,7 +7,9 @@
 
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler 
+from sklearn.preprocessing import (MinMaxScaler,
+                                   StandardScaler
+                                   ) 
 
 # %%
 def open_dataset(file):
@@ -53,7 +55,7 @@ def columns(data):
 # test_capped = np.clip(test[scale_col], 0, max_value)
 
 # %%
-def scale(data, all_col, bool_col, scale_col):
+def min_max_scale(data, all_col, bool_col, scale_col):
     """      
     Input:      bool_col          List of columns to not scale
                 scale_col         List of columns to scale
@@ -68,25 +70,48 @@ def scale(data, all_col, bool_col, scale_col):
     scaled = pd.DataFrame(scaled, columns = scale_col)
     scaled = pd.concat([data[bool_col], scaled],axis=1)
     
-    scaled = scaled[all_col]
+    min_max_scaled = scaled[all_col]
     
-    return scaled
+    return min_max_scaled
 
 # %%
-def output_csv(scaled):
+def standard_scale(data, all_col, bool_col, scale_col):
+    """      
+    Input:      bool_col          List of columns to not scale
+                scale_col         List of columns to scale
+
+    Returns:    scaled            Dataset scaled 0-1
+            
+    Scales the data using Min Max and returns it as a dataframe
+    """    
+    scaler = StandardScaler()
+
+    scaled = scaler.fit_transform(data.drop(bool_col, axis = 1))
+    scaled = pd.DataFrame(scaled, columns = scale_col)
+    scaled = pd.concat([data[bool_col], scaled],axis=1)
+    
+    standard_scaled = scaled[all_col]
+    
+    return standard_scaled
+
+# %%
+def output_csv(min_max_scaled, standard_scaled):
     """      
     Input:      scaled            Dataset scaled 0-1
             
     Exports scaled dataframe as .csv
     """ 
-    scaled.to_csv("ScaledDataset.csv")  
+    min_max_scaled.to_csv("MMDataset.csv")
+    standard_scaled.to_csv("SDataset.csv")    
 
 # %%
 file = input("Enter file for scaling: ")
 # file = 'AC_dataset.csv'
 data = open_dataset(file)
 all_col, bool_col, scale_col = columns(data)
-scaled = scale(data, all_col, bool_col, scale_col)
-output_csv(scaled)
+min_max_scaled = min_max_scale(data, all_col, bool_col, scale_col)
+standard_scaled = standard_scale(data, all_col, bool_col, scale_col)
+
+output_csv(min_max_scaled, standard_scaled)
 
 
