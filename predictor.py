@@ -2,7 +2,7 @@
 # SAAPpred script that predicts protein pathogenicty from SAAPdap data, using XG Boost. Used on on "AC_dataset" (imbalance 2:1: ~2200 PD and ~1100 SNP) and "Dataset_NoFeature" (imbalance 18:1: ~460000 PD and ~25000 SNP)
 # Goal is to predict SNP or PD with MCC > 0.7.
 #         
-
+# Scale branch
 
 # %% [markdown]
 # ### Import library
@@ -263,8 +263,7 @@ def Balance_ratio(maxSize, minSize):
     majority class instances are sampled, then + 1 to make odd to allow weighted vote.
     """
     Divide = maxSize/minSize
-    # BF = (2 * round(Divide)) + 1    #Double ratio to nearest integer
-    BF = round(Divide) + 1
+    BF = (2 * round(Divide)) + 1    #Double ratio to nearest integer
     return BF
 
 # %%
@@ -344,40 +343,20 @@ def hyperopt_space():
 
     Define paramater psace for hyperopt tuning
    """  
-#   params = {
-#     'booster': 'gbtree',
-#     'objective': 'binary:logistic', 
-#     # 'learning_rate': 0.3,
-#     # 'max_depth': 5,
-#     }
-#   for i in range(BF):        
-#     BF_GBC_HP = xgb.cv(
-#         params,
-#         d_train_list[i],
-#         nfold = 5,
-#         num_boost_round= 500,
-#         early_stopping_rounds= 20,
-#         custom_metric = CM, 
-#         as_pandas=True,
-#     )
-  
-#   return(BF_GBC_HP) 
-
     space = {
-        'num_boost_round': scope.int(hp.quniform('num_boost_round', 1000, 2000, 100)),
-        'max_depth': scope.int(hp.quniform('max_depth', 3, 10, 1)),
-        'eta': hp.loguniform('eta', -1, -0.523),
-        # 'min_child_weight': hp.loguniform('min_child_weight', -1, 7),
-        # 'gamma': hp.loguniform ('gamma', -10, 10),
-        # 'reg_alpha': hp.loguniform('reg_alpha', -10, 10),
-        # 'reg_lambda': hp.loguniform('reg_lambda', -10, 10),
-    }
+        'num_boost_round': scope.int(hp.quniform('num_boost_round', 1000, 2000, 250)),
+        'max_depth': scope.int(hp.quniform('max_depth', 3, 18, 1)),
+        'eta': hp.loguniform('eta', np.log(0.001), 0.2),
+        'min_child_weight': hp.quniform('min_child_weight', 0, 10, 1),
+        'gamma': hp.uniform ('gamma', 0, 9),
+        'reg_lambda': hp.uniform('reg_lambda', 0, 9),
+        }
      
     return space
 
 
 # %%
-def objective(params, d_train_list, d_val): 
+def objective(params, d_train_list, d_val, MCC_eval_metric): 
     """ 
     Input:      BF                Number of balancing folds                      
                 d_train_list      List of balanced training feature folds in DMatrix
@@ -390,42 +369,42 @@ def objective(params, d_train_list, d_val):
     num_boost_round = params['num_boost_round']
     max_depth = params['max_depth']
     eta = params['eta']
-    # min_child_weight = params['min_child_weight']
-    # gamma = params['gamma']
-    # reg_alpha = params['reg_alpha']
-    # reg_lambda = params['reg_lambda']
+    min_child_weight = params['min_child_weight']
+    gamma = params['gamma']
+    reg_lambda = params['reg_lambda']
     
     param = {
         'booster': 'gbtree',
         'objective': 'binary:logistic',
+        'disable_default_eval_metric': 1,
+        # 'eval_metric': 'error',
+        'verbosity': 1,
         'max_depth': max_depth,
         'eta': eta,
-        # 'min_child_weight':min_child_weight,
-        # 'gamma': gamma,
-        # 'reg_alpha':reg_alpha,
-        # 'reg_lambda': reg_lambda,
+        'min_child_weight': min_child_weight,
+        'gamma': gamma,
+        'reg_lambda': reg_lambda,
               } 
 
-    BF_models = []
-    pred_list = []
-    for fold_i in range(len(d_train_list)):
-        d_train = d_train_list[fold_i]                              #Dmatrix for each balanced fold
-        BF_models = xgb.train(param,
-                            d_train,
-                            num_boost_round = num_boost_round
-                            )
-                                                                    #Generates and fits a GBC for each training balanced fold
-        pred = BF_models[fold_i].predict(d_val)
-        MCC = matthews_corrcoef(d_val.get_label(), pred.round())
-        pred_list.append(MCC)
-    mean = np.mean(pred_list)
-    
-                                                                      
-    return {'loss': -mean, 'status': STATUS_OK}
+
+    d_train = d_train_list                             #Dmatrix for each balanced fold
+    BF_models = xgb.train(param,
+                        d_train,
+                        num_boost_round = num_boost_round,
+                        evals = [(d_val, 'Model')],
+                        verbose_eval = False,
+                        early_stopping_rounds = 100,
+                        custom_metric = MCC_eval_metric,
+                        )
+                                                                #Generates and fits a GBC for each training balanced fold
+    pred = BF_models.predict(d_val)
+    MCC = matthews_corrcoef(d_val.get_label(), pred.round())
+                                                                         
+    return {'loss': -MCC, 'status': STATUS_OK}
 
 
 # %%
-def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric, fold, pickle_file): 
+def BF_fitting(BF, d_train_list, d_val, fold, pickle_file, best_param): 
     """ 
     Input:      BF                Number of balancing folds                      
                 d_train_list      List of balanced training feature folds in DMatrix
@@ -435,28 +414,31 @@ def BF_fitting(BF, d_train_list, d_val, MCC_eval_metric, fold, pickle_file):
 
     Create GBC model that returns probability predictions for each fold, using output of Balance_Folds() as training data (as Dmatrix)
     """     
-        
-    params = {
-    'booster': 'gbtree',
-    'tree_method': 'hist',
-    'objective': 'binary:logistic', 
-    'disable_default_eval_metric': 1,
-    'verbosity': 0,
-    # 'eval_metric':['error'],
-    } 
-    
-    
     BF_GBC = []
     
     for fold_i in range(BF):
+        
+        params = {
+            'booster': 'gbtree',
+            'tree_method': 'hist',
+            'objective': 'binary:logistic', 
+            'disable_default_eval_metric': 1,
+            'verbosity': 0,
+            'num_parallel_tree': 1,
+            'max_depth': int(best_param[fold_i]['max_depth']),
+            'eta': best_param[fold_i]['eta'],
+            'min_child_weight': best_param[fold_i]['min_child_weight'],
+            'gamma': best_param[fold_i]['gamma'],
+            'reg_lambda': best_param[fold_i]['reg_lambda'],
+            }
+        
         d_train = d_train_list[fold_i]                              #Dmatrix for each balanced fold
         model = xgb.train(params,                                   #Generates and fits a GBC for each training balanced fold
                           d_train, 
-                          num_boost_round = 1500,
+                          num_boost_round = int(best_param[fold_i]['num_boost_round']),
                           evals  = [(d_val,'Model')],
                           verbose_eval = False,               #Print evaluation metrics every 50 trees
-                          early_stopping_rounds = 250,
-                          custom_metric = MCC_eval_metric,
+                        #   early_stopping_rounds = 100,
                           )
         
         filename = f"CV_{fold + 1}_model_{fold_i + 1}.pkl"
@@ -551,7 +533,7 @@ def CV_evaluation(d_val, Final_vote):
 # %%
 def fold_predict(d_test, pickle_file):
     """ 
-    Input:      all_model_list    List of all GBM models from all fold. 25 total
+    Input:      pickle_file       List of all GBM models files from all fold. 25 total
                 d_test            Unseen testing data as Dmatrix
 
                 
@@ -640,12 +622,14 @@ start = time.time()
 Score_list = []
 pickle_file = []
 
-file_train = input("Enter file for training: ")
-file_test = input("Enter file for testing: ")
-    
+# file_train = input("Enter file for training: ")
+# file_test = input("Enter file for testing: ")
+file_train = "STraining_Set.csv"
+file_test = "STesting_Set.csv"
+Training_Set, Testing_Set    = open_data(file_train, file_test)
+
 # for i in range(0,15):
 print("Opening dataset...")
-Training_Set, Testing_Set    = open_data(file_train, file_test)
 d_test, TestData, TestLabels = test_dmatrix(Testing_Set)   
 
 # test(Training_Set, d_test)
@@ -667,17 +651,20 @@ for fold in range(len(IT_list)):
     d_train_list, d_val         = GBM_dmatrix(BF, Input_folds, Output_folds, ValData, Vallabel)
     
     print(f"[Fold {fold}] Training...")
-    # space = hyperopt_space()
-    # trials = Trials()
-    # fmin_objective = partial(objective, d_train_list = d_train_list, d_val = d_val)
-    # best = fmin(fn = fmin_objective,
-    #             space = space,
-    #             algo = tpe.suggest,
-    #             max_evals = 100,
-    #             trials = trials,
-    #             )
-    # print(best)
-    BF_GBC, pickle_file         = BF_fitting(BF, d_train_list, d_val, MCC_eval_metric, fold, pickle_file)
+    
+    space = hyperopt_space()
+    best_param = []
+    for i in range(len(d_train_list)):
+        trials = Trials()
+        fmin_objective = partial(objective, d_train_list = d_train_list[i], d_val = d_val, MCC_eval_metric = MCC_eval_metric)
+        best = fmin(fn = fmin_objective,
+                    space = space,
+                    algo = tpe.suggest,
+                    max_evals = 120,
+                    trials = trials,
+                    )
+        best_param.append(trials.argmin)
+    BF_GBC, pickle_file         = BF_fitting(BF, d_train_list, d_val, fold, pickle_file, best_param)
 
     Prob_matrix                 = BF_predict(BF_GBC, d_val)
     Final_vote, Sum_PD, Sum_SNP = Weighted_Vote(Prob_matrix)
@@ -694,7 +681,7 @@ print(MCC_final)
 Score_list.append(MCC_final)
 #loop     
 end = time.time()
-plot(Score_list)
+# plot(Score_list)
 print(f"Final evaluation:{np.mean(Score_list)} \u00B1 {np.std(Score_list)}\n\nLowest score:{min(Score_list)}\nHighest score:{max(Score_list)}\n\nRun time: {end-start}")
 
 
