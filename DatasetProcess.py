@@ -1,21 +1,26 @@
-# %%
-"""
-This script peforms the pre-processing on the large dataset for SAAPpred.
-This includes removing NaNs, encoding class label, and converting protein identifier to Uniprot Acession code.
+# %% [markdown]
+# 
+# DatasetProcess.py peforms the pre-processing on the large dataset for SAAPpred.
+# This includes removing NaNs, encoding class label, and simplifying the protein identifier to Uniprot Acession code.
+# 
+# Returns a combined, shuffled dataset of PDs and SNPs. 
 
-Returns a combined, shuffled dataset of PDs and SNPs. 
-"""
-from urllib import request
-import sys
-import re
+# %%
 import pandas as pd
-import numpy as np
 import time
-import xgboost as xgb
 from sklearn.preprocessing import LabelEncoder
 
 # %%
 def clean_data(PD_file, SNP_file):
+    """      
+    Input:      PD_file          csv file of PD data
+                SNP_file         csv file of snp data
+
+    Returns:    combined         Dataframe of combined SNP and PD data with error values removed
+
+    Combine PD and SNP dataset, removes NaNs/ blank/ error spaces, encode dataset label and shuffle
+    """
+    
     df_pd = pd.read_csv(PD_file)
     df_snp = pd.read_csv(SNP_file)
     datasets = [df_pd, df_snp]
@@ -31,42 +36,54 @@ def clean_data(PD_file, SNP_file):
 
     #Encodes class labels to numeric values (0 or 1)
     df['dataset'] = 1 - (LabelEncoder().fit_transform(df['dataset']))   # Subtract from 1 so that PD = 1 and SNP = 0
-    cleaned = df
+    combined = df
         
+    return combined
+
+# %%
+def identifer(combined):
+    """      
+    Input:      combined         Dataframe of pre-processed, combined SNP and PD data
+
+    Returns:    cleaned          Dataframe of mutation data with UniProt Acession Code identifier
+
+    Simplify the protein identifier column to UniProt Acession Code
+    """
+
+    AC_codes = combined.iloc[:, 0].str.extract(r':(\w+):')
+    
+    combined.drop(['num:uniprotac:res:nat:mut:pdbcode:chain:resnum:mutation:structuretype:resolution:rfactor'], axis=1, inplace=True) #Remove original column header
+    combined.insert(0, 'AC Code', AC_codes)
+    cleaned = combined
+
     return cleaned
 
 # %%
-def identifer(cleaned):
-
-    AC_codes = cleaned.iloc[:, 0].str.extract(r':(\w+):')
-    
-    cleaned.drop(['num:uniprotac:res:nat:mut:pdbcode:chain:resnum:mutation:structuretype:resolution:rfactor'], axis=1, inplace=True) #Remove original column header
-    cleaned.insert(0, 'AC Code', AC_codes)
-
-    return cleaned, AC_codes
-
-# %%
 def distance_feature(cleaned):
-    AC_dataset_Nofeature = cleaned.drop(['SprotFTdist-ACT_SITE','SprotFTdist-BINDING','SprotFTdist-CA_BIND','SprotFTdist-DNA_BIND','SprotFTdist-NP_BIND','SprotFTdist-METAL','SprotFTdist-MOD_RES','SprotFTdist-CARBOHYD','SprotFTdist-MOTIF','SprotFTdist-LIPID'], axis = 1, inplace = False)
-    AC_dataset_feature = cleaned
+    """      
+    Input:      cleaned                 Dataframe of pre-processed SNP and PD data
+
+    Returns:    Dataset_Feature         Dataframe with additional SprotFTdist features
+                Dataset_NoFeature       Dataframe without additional SprotFTdist features
+
+    Output the pre-processed data as csv files
+    """
+    Dataset_Feature   = cleaned.drop(['SprotFTdist-ACT_SITE','SprotFTdist-BINDING','SprotFTdist-CA_BIND','SprotFTdist-DNA_BIND','SprotFTdist-NP_BIND','SprotFTdist-METAL','SprotFTdist-MOD_RES','SprotFTdist-CARBOHYD','SprotFTdist-MOTIF','SprotFTdist-LIPID'], axis = 1, inplace = False)
+    Dataset_NoFeature = cleaned
     
-    return(AC_dataset_feature, AC_dataset_Nofeature)
+    Dataset_Feature.to_csv('Dataset_Feature.csv')
+    Dataset_NoFeature.to_csv('Dataset_NoFeature.csv')
 
 # %%
 """ Main program """
 start = time.time()
-print("Running script...")
 
-PD_file = "pd.csv"  
-SNP_file = "snp.csv" 
-cleaned = clean_data(PD_file, SNP_file)
-cleaned, AC_Codes = identifer(cleaned)
-AC_dataset_feature, AC_dataset_Nofeature = distance_feature(cleaned)
-
-AC_dataset_feature.to_csv('Dataset_Feature.csv')
-AC_dataset_Nofeature.to_csv('Dataset_NoFeature.csv')
+PD_file = "pd.csv"
+SNP_file = "snp.csv"
+combined = clean_data(PD_file, SNP_file)
+cleaned = identifer(combined)
+Dataset_Feature, Dataset_NoFeature = distance_feature(cleaned)
 
 end = time.time()
-print(end-start)
 
 
