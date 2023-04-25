@@ -329,12 +329,12 @@ def MCC_eval_metric(pred, d_val):
     
     Returns:    mcc               The MCC from a boosted tree round
 
-    MCC as a custom evaluation metric to evaluate model training during cross validation. This is different from the final weighted vote evaluation.
+    MCC as a custom evaluation metric for early stopping
     """
     true_label = d_val.get_label()   
     pred_label = np.round(pred) 
     
-    return 'mcc', matthews_corrcoef(pred_label, true_label)
+    return 'mcc', matthews_corrcoef(true_label, pred_label )
 
 # %%
 def hyperopt_space():
@@ -346,7 +346,7 @@ def hyperopt_space():
     space = {
         'num_boost_round': scope.int(hp.quniform('num_boost_round', 1000, 2000, 250)),
         'max_depth': scope.int(hp.quniform('max_depth', 3, 18, 1)),
-        'eta': hp.loguniform('eta', np.log(0.001), 0.2),
+        'eta': hp.loguniform('eta', np.log(0.001), 0.7),
         'min_child_weight': hp.quniform('min_child_weight', 0, 10, 1),
         'gamma': hp.uniform ('gamma', 0, 9),
         'reg_lambda': hp.uniform('reg_lambda', 0, 9),
@@ -393,7 +393,7 @@ def objective(params, d_train_list, d_val, MCC_eval_metric):
                         num_boost_round = num_boost_round,
                         evals = [(d_val, 'Model')],
                         verbose_eval = False,
-                        early_stopping_rounds = 100,
+                        early_stopping_rounds = 40,
                         custom_metric = MCC_eval_metric,
                         )
                                                                 #Generates and fits a GBC for each training balanced fold
@@ -656,7 +656,10 @@ for fold in range(len(IT_list)):
     best_param = []
     for i in range(len(d_train_list)):
         trials = Trials()
-        fmin_objective = partial(objective, d_train_list = d_train_list[i], d_val = d_val, MCC_eval_metric = MCC_eval_metric)
+        fmin_objective = partial(objective,
+                                 d_train_list = d_train_list[i],
+                                 d_val = d_val,
+                                 MCC_eval_metric = MCC_eval_metric)
         best = fmin(fn = fmin_objective,
                     space = space,
                     algo = tpe.suggest,
