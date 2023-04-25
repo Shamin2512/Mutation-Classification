@@ -344,9 +344,9 @@ def hyperopt_space():
     Define paramater psace for hyperopt tuning
    """  
     space = {
-        'num_boost_round': scope.int(hp.quniform('num_boost_round', 1000, 2000, 250)),
-        'max_depth': scope.int(hp.quniform('max_depth', 3, 18, 1)),
-        'eta': hp.loguniform('eta', np.log(0.001), 0.7),
+        'num_boost_round': scope.int(hp.quniform('num_boost_round', 1250, 2000, 250)),
+        'max_depth': scope.int(hp.quniform('max_depth', 3, 9, 1)),
+        'eta': hp.loguniform('eta', np.log(0.01), np.log(0.7)),
         'min_child_weight': hp.quniform('min_child_weight', 0, 10, 1),
         'gamma': hp.uniform ('gamma', 0, 9),
         'reg_lambda': hp.uniform('reg_lambda', 0, 9),
