@@ -8,10 +8,23 @@
 # %%
 import pandas as pd
 import time
+import random
 from sklearn.preprocessing import LabelEncoder
 
 # %%
-def clean_data(PD_file, SNP_file):
+def random_seed():
+    """      
+    Returns:    seed         Random seed from current time
+
+    Generate a random seed to be used by all scripts
+    """
+    seed = random.randint(0, round(time.time()))
+    random.seed(seed)
+    
+    return seed
+
+# %%
+def clean_data(PD_file, SNP_file, seed):
     """      
     Input:      PD_file          csv file of PD data
                 SNP_file         csv file of snp data
@@ -31,7 +44,7 @@ def clean_data(PD_file, SNP_file):
     df.dropna(inplace = True)
 
     #Shuffle data to remove patterns and reset index
-    df = df.sample(frac = 1)
+    df = df.sample(frac = 1, random_state= seed)
     df.reset_index(drop=True, inplace = True)
 
     #Encodes class labels to numeric values (0 or 1)
@@ -68,21 +81,28 @@ def distance_feature(cleaned):
 
     Output the pre-processed data as csv files
     """
-    Dataset_Feature   = cleaned.drop(['SprotFTdist-ACT_SITE','SprotFTdist-BINDING','SprotFTdist-CA_BIND','SprotFTdist-DNA_BIND','SprotFTdist-NP_BIND','SprotFTdist-METAL','SprotFTdist-MOD_RES','SprotFTdist-CARBOHYD','SprotFTdist-MOTIF','SprotFTdist-LIPID'], axis = 1, inplace = False)
-    Dataset_NoFeature = cleaned
+    Dataset_Feature   = cleaned 
+    Dataset_NoFeature = cleaned.drop(['SprotFTdist-ACT_SITE','SprotFTdist-BINDING','SprotFTdist-CA_BIND','SprotFTdist-DNA_BIND','SprotFTdist-NP_BIND','SprotFTdist-METAL','SprotFTdist-MOD_RES','SprotFTdist-CARBOHYD','SprotFTdist-MOTIF','SprotFTdist-LIPID'], axis = 1, inplace = False)
     
     Dataset_Feature.to_csv('Dataset_Feature.csv')
     Dataset_NoFeature.to_csv('Dataset_NoFeature.csv')
 
 # %%
 """ Main program """
-start = time.time()
 
-PD_file = "pd.csv"
-SNP_file = "snp.csv"
-combined = clean_data(PD_file, SNP_file)
+seed = random_seed()
+with open("seed.txt", "w") as f:        # write seed to text to be used by other scripts
+    f.write(str(seed))
+    
+PD_file = input("Enter PD file: ")
+SNP_file = input("Enter SNP file: ")
+# PD_file = "pd.csv"
+# SNP_file = "snp.csv"
+
+start = time.time()
+combined = clean_data(PD_file, SNP_file, seed)
 cleaned = identifer(combined)
-Dataset_Feature, Dataset_NoFeature = distance_feature(cleaned)
+distance_feature(cleaned)
 
 end = time.time()
 
