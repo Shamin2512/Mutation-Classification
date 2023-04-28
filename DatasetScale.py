@@ -1,6 +1,7 @@
 # %% [markdown]
-# This script peforms the scaling of data for SAAPpred.
-# Min-Max scaling scales all continuous (non-categorical) features to be between 0-1
+# DatasetScale.py peforms the scaling of data for SAAPpred.
+# 
+# Min-Max and standard scaling scales all non-boolean features
 
 # %%
 """ Imports the required libraries and packages """
@@ -14,7 +15,7 @@ from sklearn.preprocessing import (MinMaxScaler,
 # %%
 def open_dataset(file):
     """      
-    Input:      file              CSV file to scale 
+    Input:      file              csv file to scale 
 
     Returns:    data              Dataframe of data to scale
             
@@ -22,7 +23,7 @@ def open_dataset(file):
     """    
     data = pd.read_csv(file, index_col=0)
     data.reset_index(drop = True, inplace = True)
-    
+            
     return data
 
 # %%
@@ -49,10 +50,6 @@ def columns(data):
     scale_col = [col for col in all_col if col not in bool_col]
     
     return all_col, bool_col, scale_col
-
-# %%
-# max_value = np.max(train[scale_col])
-# test_capped = np.clip(test[scale_col], 0, max_value)
 
 # %%
 def min_max_scale(data, all_col, bool_col, scale_col):
