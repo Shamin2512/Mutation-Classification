@@ -5,11 +5,11 @@
 - pd.csv - Full Pathogenic Deviation data
 - snp.csv - Full Single Nucleotide Polymorphism data
 - AC_dataset.csv - 3000 protein subsample dataset (PD and SNP combined)
-- seed.txt - Seed for experiment reproducibility (will be changed when running DatasetProcess.py) 
+- seed.txt - Seed for experiment reproducibility (changes when running DatasetProcess.py) 
 - README.md - readme file
 
-### Directoreis
-- Dev - Folder for scripts/ notebooks used to develop predictor
+### Directories
+- Dev - Folder for scripts/ notebooks used to develop predictor 
 
 ### Scripts and notebooks
 - DatasetProcess.py - Pre-process dataset script
