@@ -466,7 +466,7 @@ def CV_evaluation(d_val, Final_vote):
 # ## Final evaluation on testing set 
 
 # %%
-def final_BF_predict(pickle_file, TestData):
+def final_BF_predict(pickle_file, d_test):
     """ 
     Input:      BF_RFC            List of RFCs trained on balancing folds
                 d_test            Testing data as Dmatrix
@@ -479,8 +479,7 @@ def final_BF_predict(pickle_file, TestData):
     """
     all_prob_matrix = []
     prefix = f"CV_"
-    d_test = xgb.DMatrix(TestData)
-    
+        
     for file in pickle_file:
         if file.startswith(prefix):
             with open(file, "rb") as f:
@@ -505,7 +504,7 @@ file_test = input("Enter file for testing: ")
 
 print("Opening dataset...")
 Training_Set, Testing_Set    = open_data(file_train, file_test)
-d_test, TestData, TestLabels = learning_data(Testing_Set)  
+TestData, TestLabels, d_test = learning_data(Testing_Set)  
 
 print("Performing 5-fold group CV...")            
 IT_list, LT_list, IV_list, LV_list = CV(Training_Set)     
@@ -548,7 +547,7 @@ for fold in range(len(IT_list)):
     print(f"Fold {fold + 1} MCC:\n{CV_MCC}\n")
 
 print("Testing...") 
-all_prob_matrix = final_BF_predict(pickle_file, TestData)
+all_prob_matrix = final_BF_predict(pickle_file, d_test)
 Final_vote      = Weighted_Vote(all_prob_matrix)     
 Final_MCC       = CV_evaluation(d_test, Final_vote)
      
