@@ -1,7 +1,7 @@
 # %% [markdown]
-# DatasetScale.py peforms the scaling of data for SAAPpred.
+# DatasetScale.py peforms the scaling of ll non-boolean features.
 # 
-# Min-Max and standard scaling scales all non-boolean features
+# Returns min-max and standard scaling scaled csv
 
 # %%
 """ Imports the required libraries and packages """
@@ -34,7 +34,7 @@ def columns(data):
     Returns:    bool_col          List of columns to not scale
                 scale_col         List of columns to scale
             
-    Identifies the continuous data columns to scale
+    Identify the continuous data columns to scale
     """    
     all_col = data.columns.to_list()                             #List of all columns
     
@@ -47,7 +47,7 @@ def columns(data):
             
     bool_col.insert(0,'AC Code')                                 # Adds identifier
 
-    scale_col = [col for col in all_col if col not in bool_col]
+    scale_col = [col for col in all_col if col not in bool_col]  # Columns to be scaled
     
     return all_col, bool_col, scale_col
 
@@ -57,9 +57,9 @@ def min_max_scale(data, all_col, bool_col, scale_col):
     Input:      bool_col          List of columns to not scale
                 scale_col         List of columns to scale
 
-    Returns:    scaled            Dataset scaled 0-1
+    Returns:    scaled            Dataset normalised 0-1
             
-    Scales the data using Min Max and returns it as a dataframe
+    Normalise the data using Min Max and return it as a dataframe
     """    
     scaler = MinMaxScaler()
 
@@ -79,7 +79,7 @@ def standard_scale(data, all_col, bool_col, scale_col):
 
     Returns:    scaled            Dataset scaled 0-1
             
-    Scales the data using Min Max and returns it as a dataframe
+    Standardise the data using standard scaling and return it as a dataframe
     """    
     scaler = StandardScaler()
 
@@ -96,14 +96,15 @@ def output_csv(min_max_scaled, standard_scaled):
     """      
     Input:      scaled            Dataset scaled 0-1
             
-    Exports scaled dataframe as .csv
+    Exports scaled dataframes as .csv
     """ 
     min_max_scaled.to_csv("MMDataset.csv")
     standard_scaled.to_csv("SDataset.csv")    
 
 # %%
+"""Main program"""
+
 file = input("Enter file for scaling: ")
-# file = 'AC_dataset.csv'
 data = open_dataset(file)
 all_col, bool_col, scale_col = columns(data)
 min_max_scaled = min_max_scale(data, all_col, bool_col, scale_col)
