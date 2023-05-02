@@ -1,5 +1,7 @@
 # %% [markdown]
-# DatasetSplit.py script splits the scaled dataset into 80% training and 20% testing sets
+# DatasetSplit.py script splits the processed, scaled dataset into 80% training and 20% testing sets.
+# 
+# Returns training and testing csv
 
 # %%
 import pandas as pd                                                              # Data manipulation in dataframes
@@ -13,7 +15,7 @@ def Train_Test_Split(file, seed):
     Returns:    Training_Set     80% training set split
                 Testing_Set      20% testing set split
                 
-    80% training and 20% testing split. Splits are shuffled randomly and index reset. Datasets are scaled by DatasetScalling script
+    80% training and 20% testing split. Splits are shuffled randomly and index reset.
     """
     AC_dataset                  = pd.read_csv(file, index_col = 0)  
         
