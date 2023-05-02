@@ -3,7 +3,7 @@
 # DatasetProcess.py peforms the pre-processing on the large dataset for SAAPpred.
 # This includes removing NaNs, encoding class label, and simplifying the protein identifier to Uniprot Acession code.
 # 
-# Returns a combined, shuffled dataset of PDs and SNPs. 
+# Returns a combined, shuffled PDs and SNPs csv. 
 
 # %%
 import pandas as pd
@@ -27,7 +27,7 @@ def random_seed():
 def clean_data(PD_file, SNP_file, seed):
     """      
     Input:      PD_file          csv file of PD data
-                SNP_file         csv file of snp data
+                SNP_file         csv file of SNP data
 
     Returns:    combined         Dataframe of combined SNP and PD data with error values removed
 
@@ -96,8 +96,6 @@ with open("seed.txt", "w") as f:        # write seed to text to be used by other
     
 PD_file = input("Enter PD file: ")
 SNP_file = input("Enter SNP file: ")
-# PD_file = "pd.csv"
-# SNP_file = "snp.csv"
 
 start = time.time()
 combined = clean_data(PD_file, SNP_file, seed)
